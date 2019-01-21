@@ -1,5 +1,5 @@
 # CS 545  Machine Learning 
-http://web.cecs.pdx.edu/~mm/MachineLearningWinter2019/
+http://web.cecs.pdx.edu/~mm/MachineLearningWinter2019/  
 Winter 2019  
 Portland State University  
 Instructor: Melanie Mitchell
