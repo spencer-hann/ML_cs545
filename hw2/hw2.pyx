@@ -3,9 +3,11 @@
 import sys
 import numpy as np
 cimport numpy as np
+import cython
 from cython.parallel cimport prange
 from libc.math cimport exp
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 def preprocess_data(filename, max_rows=None):
@@ -155,8 +157,9 @@ cdef class NN: # Neural_Network:
             double[:,::1] testing_examples,
             int[::1] testing_targets
             ):
-        cdef double[::1] acc_training = np.empty(training_examples.shape[0] + 1)
-        cdef double[::1] acc_testing = np.empty(testing_examples.shape[0] + 1)
+        cdef int e, n_epochs = 50;
+        cdef np.ndarray acc_training = np.empty(n_epochs + 1)
+        cdef np.ndarray acc_testing = np.empty(n_epochs + 1)
         print "initial accuracy: "
         acc_training[0] = self.get_accuracy(training_examples, training_targets)
         acc_testing[0] = self.get_accuracy(testing_examples, testing_targets)
@@ -164,22 +167,33 @@ cdef class NN: # Neural_Network:
         print "Testing:  " + str(acc_testing[0])
         print "..."
 
-        cdef int e#poch
-        for e in range(50):
+        for e in range(n_epochs):
         #for e in tqdm(range(50)):
             self.back_prop(training_examples, training_targets)
 
             e += 1
             acc_training[e] = self.get_accuracy(training_examples, training_targets)
             acc_testing[e] = self.get_accuracy(testing_examples, testing_targets)
-            acc_training[e] *= 100
-            acc_testing[e] *= 100
 
-            #print str(e) + '\t',
-            #sys.stdout.flush()
+            print str(e) + '\t',
+            sys.stdout.flush()
             if e % 10 == 0:
                 print "\nEpoch: " + str(e)
                 print "Training: " + str(acc_training[e])
                 print "Testing:  " + str(acc_testing[e])
 
-        return acc_training, acc_testing
+        return acc_training*100, acc_testing*100
+
+@cython.wraparound(True)
+def plot_accuracy(np.ndarray training, np.ndarray testing):
+    plt.plot(training, label="Training")
+    plt.plot(testing, label="Testing")
+    plt.title("Accuracy by epochs" + \
+            "\n Final Testing Accuracy: " + str(testing[-1]) +\
+            "\n Max Testing Accuracy:   " + str(np.max(testing))
+            )
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.grid()
+    plt.show()
