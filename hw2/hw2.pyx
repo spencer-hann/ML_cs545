@@ -35,8 +35,8 @@ cdef inline double get_output_error(double output, int target) nogil:
 cdef class NN: # Neural_Network:
     cdef double[:,::1] weights_x
     cdef double[:,::1] weights_h
-    cdef np.ndarray hidden_layer
-    cdef np.ndarray output_layer
+    cdef double[::1] hidden_layer
+    cdef double[::1] output_layer
     cdef int n_hidden
     cdef int n_input
     cdef int n_output
@@ -58,17 +58,18 @@ cdef class NN: # Neural_Network:
         self.learning_rate = learning_rate
 
         self.weights_x = np.random.rand(n_hidden, n_input) - .5
-        self.weights_h = np.random.rand(n_output, n_hidden+1) - .5
+        self.weights_h = np.random.rand(n_output, n_hidden) - .5
 
-        self.hidden_layer = np.empty(n_hidden+1, dtype=np.float)
-        self.hidden_layer[0] = 1.0
-        self.output_layer = np.empty(n_output, dtype=np.float)
+        #self.hidden_layer = np.empty(n_hidden, dtype=np.float)
+        #self.output_layer = np.empty(n_output, dtype=np.float)
 
-    cdef void feed_forward(NN self, double[::1] inputs):
-        np.matmul(self.weights_x, inputs, out=self.hidden_layer[1:])
-        activate_vector(self.hidden_layer[1:], self.n_hidden)
+    cdef void feed_forward(NN self, double[::1] inputs) with gil:
+        self.hidden_layer = np.matmul(self.weights_x, inputs)
+            #, out=self.hidden_layer)
+        activate_vector(self.hidden_layer, self.n_hidden)
 
-        np.matmul(self.weights_h, self.hidden_layer, out=self.output_layer)
+        self.output_layer = np.matmul(self.weights_h, self.hidden_layer)
+            #, out=self.output_layer)
         activate_vector(self.output_layer, self.n_output)
 
     cdef int get_result(NN self, double[::1] inputs):
@@ -99,24 +100,20 @@ cdef class NN: # Neural_Network:
         cdef double[::1] prev_weight_h_change = np.zeros(self.n_hidden)
         cdef double weighted_output_error
         cdef double weight_change
-        # cdef typing numpy arrays as memoryviews allows access w/o gil
-        cdef double[::1] hidden_layer = self.hidden_layer
-        cdef double[::1] output_layer = self.output_layer
 
         for n in range(targets.shape[0]):
             target[targets[n]] = 1
             self.feed_forward(inputs[n])
-            hidden_layer = self.hidden_layer
 
            ## Output Layer loop
             # determine error from hidden layer to output layer
             for k in prange(self.n_output, nogil=True):
-                errors_ho[k] = get_output_error(output_layer[k], target[k])
+                errors_ho[k] = get_output_error(self.output_layer[k], target[k])
 
-           ## Hidden->Output Layer loop
+           ## Hidden Layer loop
             # determine error from input layer to hidden layer
             # while in j loop, update weights
-            for j in prange(self.n_hidden+1, nogil=True):
+            for j in prange(self.n_hidden, nogil=True):
                 weighted_output_error = 0.0
                 for k in prange(self.n_output):
                     weighted_output_error += self.weights_h[k,j] * errors_ho[k]
@@ -125,18 +122,15 @@ cdef class NN: # Neural_Network:
                     # unit and every kth output unit
                     weight_change = self.learning_rate * \
                                     errors_ho[k] * \
-                                    hidden_layer[j] + \
+                                    self.hidden_layer[j] + \
                                     self.momentum * \
                                     prev_weight_h_change[j]
                     prev_weight_h_change[j] = weight_change
                     self.weights_h[k,j] += weight_change
 
-           ## Input->Hidden Layer loop
-            hidden_layer = hidden_layer[1:] # rm bias
-            for j in prange(self.n_hidden, nogil=True):
                 # error from input layer to hidden layer
-                errors_xh[j] = hidden_layer[j] * \
-                                (1-hidden_layer[j]) * \
+                errors_xh[j] = self.hidden_layer[j] * \
+                                (1-self.hidden_layer[j]) * \
                                 weighted_output_error
 
                 # update weights_x for every ith input 
@@ -166,9 +160,9 @@ cdef class NN: # Neural_Network:
         for epoch in range(50):
             self.back_prop(training_examples, training_targets)
             epoch += 1
-            print epoch,
-            sys.stdout.flush()
             if epoch % 10 == 0:
                 print "\nEpoch: " + str(epoch)
                 print self.get_accuracy(training_examples, training_targets)
                 print self.get_accuracy(testing_examples, testing_targets)
+            print str(epoch) + '\t',
+            sys.stdout.flush()
