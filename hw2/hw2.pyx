@@ -5,6 +5,7 @@ import numpy as np
 cimport numpy as np
 from cython.parallel cimport prange
 from libc.math cimport exp
+from tqdm import tqdm
 
 
 def preprocess_data(filename, max_rows=None):
@@ -51,6 +52,7 @@ cdef class NN: # Neural_Network:
             double momentum = 0.9,
             double learning_rate = 0.1
             ):
+        n_hidden += 1 # +1 for bias
         self.n_hidden = n_hidden
         self.n_input = n_input
         self.n_output = n_output
@@ -67,6 +69,7 @@ cdef class NN: # Neural_Network:
         self.hidden_layer = np.matmul(self.weights_x, inputs)
             #, out=self.hidden_layer)
         activate_vector(self.hidden_layer, self.n_hidden)
+        self.hidden_layer[0] = 1.0 # reset bias term
 
         self.output_layer = np.matmul(self.weights_h, self.hidden_layer)
             #, out=self.output_layer)
@@ -152,17 +155,31 @@ cdef class NN: # Neural_Network:
             double[:,::1] testing_examples,
             int[::1] testing_targets
             ):
+        cdef double[::1] acc_training = np.empty(training_examples.shape[0] + 1)
+        cdef double[::1] acc_testing = np.empty(testing_examples.shape[0] + 1)
         print "initial accuracy: "
-        print self.get_accuracy(testing_examples, testing_targets)
+        acc_training[0] = self.get_accuracy(training_examples, training_targets)
+        acc_testing[0] = self.get_accuracy(testing_examples, testing_targets)
+        print "Training: " + str(acc_training[0])
+        print "Testing:  " + str(acc_testing[0])
         print "..."
 
-        cdef int epoch
-        for epoch in range(50):
+        cdef int e#poch
+        for e in range(50):
+        #for e in tqdm(range(50)):
             self.back_prop(training_examples, training_targets)
-            epoch += 1
-            if epoch % 10 == 0:
-                print "\nEpoch: " + str(epoch)
-                print self.get_accuracy(training_examples, training_targets)
-                print self.get_accuracy(testing_examples, testing_targets)
-            print str(epoch) + '\t',
-            sys.stdout.flush()
+
+            e += 1
+            acc_training[e] = self.get_accuracy(training_examples, training_targets)
+            acc_testing[e] = self.get_accuracy(testing_examples, testing_targets)
+            acc_training[e] *= 100
+            acc_testing[e] *= 100
+
+            #print str(e) + '\t',
+            #sys.stdout.flush()
+            if e % 10 == 0:
+                print "\nEpoch: " + str(e)
+                print "Training: " + str(acc_training[e])
+                print "Testing:  " + str(acc_testing[e])
+
+        return acc_training, acc_testing

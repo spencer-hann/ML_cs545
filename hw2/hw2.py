@@ -18,13 +18,14 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 print("   Cython may give a depricated NumPy API warning.")
-print("   This warning is safe to ignore.")
+print("   This warning is safe to ignore.\n")
 setup(
     ext_modules = cythonize(
         Extension(
             module_name,
             [cy_name],
-            define_macros=[("NPY_NO_DEPRECATED_API",None)]
+            define_macros=[("NPY_NO_DEPRECATED_API",None),
+                        ("NPY_1_7_API_VERSION",None)]
         )
     )
 )
@@ -34,12 +35,13 @@ print("======================================================================\n"
 
 # This is where I import the pre-compiled 
 # module and enter the Cython layer
+import matplotlib.pyplot as plt
 from hw2 import * #change module name
 if __name__ == "__main__":
     training_examples, training_targets = preprocess_data(
-            "mnist_train.csv", max_rows=1000)
+            "mnist_train.csv")#, max_rows=3000)
     testing_examples, testing_targets = preprocess_data(
-            "mnist_test.csv", max_rows=1000)
+            "mnist_test.csv")#, max_rows=300)
 
     network10 = NN(n_hidden=10)
     network20 = NN(n_hidden=20)
@@ -57,11 +59,15 @@ if __name__ == "__main__":
                         testing_examples,
                         testing_targets)
 
-#    print("\nhidden units = 100")
-#    network100.speed_test(training_examples,
-#                        training_targets,
-#                        testing_examples,
-#                        testing_targets)
+    print("\nhidden units = 100")
+    results = network100.speed_test(training_examples,
+                        training_targets,
+                        testing_examples,
+                        testing_targets)
+
+    plt.plot(results[0])
+    plt.plot(results[1])
+    plt.show()
 
 #    # +1 for bias weight
 #    n_hidden = 10 # 10, 20, 100
