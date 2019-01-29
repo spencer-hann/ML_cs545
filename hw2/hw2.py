@@ -24,8 +24,7 @@ setup(
         Extension(
             module_name,
             [cy_name],
-            define_macros=[("NPY_NO_DEPRECATED_API",None),
-                        ("NPY_1_7_API_VERSION",None)]
+            define_macros=[("NPY_NO_DEPRECATED_API",None)]
         )
     )
 )
@@ -35,39 +34,30 @@ print("======================================================================\n"
 
 # This is where I import the pre-compiled 
 # module and enter the Cython layer
-import matplotlib.pyplot as plt
 from hw2 import * #change module name
 if __name__ == "__main__":
     training_examples, training_targets = preprocess_data(
-            "mnist_train.csv")#, max_rows=3000)
+            "mnist_train.csv")#, max_rows=30000)
     testing_examples, testing_targets = preprocess_data(
-            "mnist_test.csv")#, max_rows=300)
+            "mnist_test.csv")#, max_rows=2000)
+
+    print("python:",sys.version)
 
     network10 = NN(n_hidden=10)
     network20 = NN(n_hidden=20)
-    network100 = NN(n_hidden=100)
+    network100 = NN(n_hidden=100)#, momentum=0.0)
 
-    print("\nhidden units = 10")
-    network10.speed_test(training_examples,
-                        training_targets,
-                        testing_examples,
-                        testing_targets)
+    data = (training_examples,training_targets,testing_examples,testing_targets)
 
-    print("\nhidden units = 20")
-    network20.speed_test(training_examples,
-                        training_targets,
-                        testing_examples,
-                        testing_targets)
+#    acc_training, acc_testing = network10.speed_test(*data)
+#    network10.plot_accuracy(acc_training, acc_testing)
 
-    print("\nhidden units = 100")
-    results = network100.speed_test(training_examples,
-                        training_targets,
-                        testing_examples,
-                        testing_targets)
+    acc_training, acc_testing = network20.speed_test(*data)
+    network20.plot_accuracy(acc_training, acc_testing)
 
-    plt.plot(results[0])
-    plt.plot(results[1])
-    plt.show()
+    acc_training, acc_testing = network100.speed_test(*data)
+    network100.plot_accuracy(acc_training, acc_testing)
+
 
 #    # +1 for bias weight
 #    n_hidden = 10 # 10, 20, 100
